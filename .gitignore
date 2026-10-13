@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+runs/
+output/
+setup.json
+usage.json
+comparison.json
+evaluator.py
+private-evaluation/

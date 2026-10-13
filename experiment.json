@@ -1,0 +1,23 @@
+{
+  "experiment_id": "ticket-analysis-v1",
+  "quality_threshold": 90,
+  "max_tokens": 1000000,
+  "max_calls": 150,
+  "max_evaluations": 10,
+  "max_wall_minutes": 90,
+  "minimum_paired_repeats": 5,
+  "strategies": {
+    "single": "단일 상위 모델이 설계·구현·검증 분석을 수행",
+    "routing": "역할별 모델 선택, 기본 컨텍스트 전달 정책 유지",
+    "routing_context": "역할별 모델 선택 + 작업 명세·관련 파일·실패 차이만 전달"
+  },
+  "model_roles": {
+    "plan": "실험 전 실제 상위 모델 ID로 고정",
+    "implement": "실험 전 실제 구현 모델 ID로 고정",
+    "test": "실험 전 실제 검증 모델 ID로 고정",
+    "escalate": "실험 전 실제 상위 모델 ID로 고정"
+  },
+  "escalation_rule": "같은 작업의 검증 실패 2회 또는 설계 모순 발견 시 상향. 상향·분류 호출도 집계",
+  "cache_policy": "모든 조건에 동일한 정책 적용; 실험 간 캐시 격리 가능 여부를 기록",
+  "time_policy": "동일 도구·환경·시간 제한. 인간의 코드 수정은 금지하고 개입 시간은 기록"
+}

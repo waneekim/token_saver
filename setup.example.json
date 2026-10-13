@@ -1,0 +1,14 @@
+{
+  "client": "Cline / 실제 버전으로 변경",
+  "models": {
+    "plan": "실제 모델 ID",
+    "implement": "실제 모델 ID",
+    "test": "실제 모델 ID",
+    "escalate": "실제 모델 ID"
+  },
+  "reasoning_effort": "실제 설정",
+  "base_commit": "동일한 출발 commit SHA",
+  "cache_policy": "실험 간 캐시 격리 또는 공유 여부",
+  "tool_permissions": "동일한 도구 권한",
+  "human_intervention_minutes": 0
+}
