@@ -126,7 +126,8 @@ python3 lab.py import-codex --run runs/local-packet-1 \
 ```
 
 재시도 로그도 모두 import한다. 단계별 파일 이름과 모델은 .coord/state.json의 history와 설정을 대조한다.
-자동 사용량 import는 현재 제공하지 않으므로 독립 평가 전에 운영자가 모든 로그를 수집해야 한다.
+아래 수동 worker 방식에서는 독립 평가 전에 운영자가 모든 로그를 수집해야 한다.
+[로컬 자동 실행기](LOCAL_RUN.md)는 역할 호출, 사용량 import, 독립 평가와 재시도를 함께 수행한다.
 완료 usage가 없는 실패·중단 로그는 missing으로 기록하여 절감률을 확정하지 않는다.
 calls는 여기서 CLI 실행 수이며 내부 API 요청 수가 아니다. 기존 게이트웨이 실험과 이를 섞어 비교하지 않는다.
 재사용/resume 기록은 이 importer에 넣지 말고 누적량의 차이를 검증하는 별도 계측을 먼저 준비한다.

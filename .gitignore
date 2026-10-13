@@ -9,3 +9,7 @@ evaluator.py
 private-evaluation/
 .coord/
 cli.models.json
+local.models.json
+actual-experiment/
+sqlite/
+cli-logs/

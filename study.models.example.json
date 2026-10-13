@@ -1,0 +1,7 @@
+{
+  "single": "gpt-6-astra",
+  "single_mid": "gpt-6.1-sol",
+  "planner": "gpt-6-astra",
+  "implementer": "gpt-6.1-sol",
+  "reviewer": "gpt-6-luna"
+}
