@@ -1,5 +1,5 @@
 {
-  "client": "Cline / 실제 버전으로 변경",
+  "client": "Codex CLI / 실제 버전으로 변경",
   "models": {
     "plan": "실제 모델 ID",
     "implement": "실제 모델 ID",

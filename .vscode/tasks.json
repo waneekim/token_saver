@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label":"token_saver: planner", "type":"process", "command":"${input:pythonCommand}", "args":["terminal_relay.py","worker","--role","planner"], "options":{"cwd":"${workspaceFolder}"}, "presentation":{"panel":"dedicated","reveal":"always"}, "problemMatcher":[]},
+    {"label":"token_saver: implementer", "type":"process", "command":"${input:pythonCommand}", "args":["terminal_relay.py","worker","--role","implementer"], "options":{"cwd":"${workspaceFolder}"}, "presentation":{"panel":"dedicated","reveal":"always"}, "problemMatcher":[]},
+    {"label":"token_saver: reviewer", "type":"process", "command":"${input:pythonCommand}", "args":["terminal_relay.py","worker","--role","reviewer"], "options":{"cwd":"${workspaceFolder}"}, "presentation":{"panel":"dedicated","reveal":"always"}, "problemMatcher":[]},
+    {"label":"token_saver: open three workers", "dependsOn":["token_saver: planner","token_saver: implementer","token_saver: reviewer"], "dependsOrder":"parallel", "problemMatcher":[]}
+  ],
+  "inputs":[{"id":"pythonCommand","type":"promptString","description":"Python 3.12 command (python or python3)","default":"python3"}]
+}

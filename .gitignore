@@ -7,3 +7,5 @@ usage.json
 comparison.json
 evaluator.py
 private-evaluation/
+.coord/
+cli.models.json

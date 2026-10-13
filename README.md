@@ -1,6 +1,9 @@
 # token_saver
 
 **동일한 개발 품질을 달성할 때까지의 누적 토큰을 줄이는 방법을 실험한다.**
+현재 연구 대상은 **VS Code에서 사용하는 Codex CLI와 Codex 모델들**이다. 회사 게이트웨이 연결은 뒤로 미뤘다.
+여러 터미널에서 같은 폴더를 사용하며 파일로 작업을 넘기는 실행 절차는 [VS Code 실험 안내](docs/VSCODE_EXPERIMENT.md)에 있다.
+대기 중 LLM을 호출하지 않는 `terminal_relay.py`, VS Code 터미널 tasks, Codex JSONL 사용량 importer를 제공한다.
 실험 미션은 [지원 티켓 분석 CLI 구현](mission/MISSION.md)이다. 자료 분석부터 구현·테스트·오류 수정까지 수행하여,
 고정된 품질 게이트를 통과하는 완성된 결과물을 제출한다. 이 저장소는 출발점이며 정답 구현은 포함하지 않는다.
 
@@ -31,6 +34,8 @@ python solution.py --tickets data/tickets.csv --policies data/policies.json --ou
 
 이 저장소의 `lab.py`는 회사 게이트웨이 또는 코딩 도구가 제공하는 usage를 기록·비교한다.
 모델 호출과 자동 라우팅은 실행기나 게이트웨이에서 수행한다. 계측 CLI만으로 라우팅이 구현되지는 않는다.
+현재 제공하는 실행기는 planner → implementer → reviewer의 정해진 순서로 Codex CLI를 호출한다.
+난이도를 자동 판정해 모델을 선택하는 라우터는 아니다.
 
 `setup.example.json`을 복사하고 모델 ID·버전·base commit·캐시 정책·도구 정보를 실제 값으로 고정한다.
 API 키 등 비밀값을 기록하지 않는다. `experiment.json`의 역할과 실행 한도도 실험 전에 확정한다.

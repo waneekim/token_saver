@@ -104,9 +104,57 @@ def totals(records):
     missing = sum(record["usage"] is None for record in records)
     known_tokens = sum(record["usage"]["total"] for record in records if record["usage"] is not None)
     all_costs = bool(records) and all(record.get("cost_usd") is not None for record in records)
+    def component(key):
+        return sum(record["usage"][key] for record in records) if records and all(record["usage"] is not None and record["usage"].get(key) is not None for record in records) else None
     return {"calls": len(records), "missing_usage_calls": missing, "known_tokens": known_tokens,
             "tokens": known_tokens if records and not missing else None,
+            "input_tokens": component("input_total"), "output_tokens": component("output_total"),
+            "cache_read_tokens": component("cache_read"), "reasoning_tokens": component("reasoning"),
             "cost_usd": sum(record["cost_usd"] for record in records) if all_costs else None}
+
+
+def codex_log_usage(path):
+    raw_bytes = Path(path).read_bytes()
+    entries = [json.loads(line) for line in raw_bytes.decode("utf-8").splitlines() if line.strip()]
+    if not all(isinstance(entry, dict) for entry in entries):
+        raise ValueError("Codex JSONL events must be objects")
+    started = [entry for entry in entries if entry.get("type") == "thread.started"]
+    completed = [entry for entry in entries if entry.get("type") == "turn.completed"]
+    failed = [entry for entry in entries if entry.get("type") == "turn.failed"]
+    if len(started) > 1 or len(completed) > 1:
+        raise ValueError("only one fresh codex exec thread per log is supported; cumulative/resumed logs cannot be summed")
+    log_sha = hashlib.sha256(raw_bytes).hexdigest()
+    thread_id = started[0].get("thread_id") if started else None
+    if thread_id is not None and (not isinstance(thread_id, str) or not thread_id):
+        raise ValueError("invalid thread_id")
+    request_id = "codex-thread:" + thread_id if thread_id else "codex-log:" + log_sha
+    usage = None
+    outcome = "failed"
+    if len(completed) == 1 and not failed and thread_id:
+        raw = completed[0]["usage"]
+        usage = normalize_usage("canonical", {"input_total": raw["input_tokens"], "output_total": raw["output_tokens"],
+                 "cache_read": raw.get("cached_input_tokens"), "cache_write": raw.get("cache_write_input_tokens"),
+                 "reasoning": raw.get("reasoning_output_tokens")})
+        outcome = "success"
+        if usage["total"] == 0:
+            # Some versions can emit default zero usage when counters are unavailable.
+            usage = None
+    return {"request_id": request_id, "usage": usage, "outcome": outcome, "source_sha256": log_sha}
+
+
+def import_codex(args):
+    target = Path(args.run)
+    load(target / "run.json")
+    item = codex_log_usage(args.events)
+    existing = events(target)
+    if any(entry["request_id"] == item["request_id"] for entry in existing):
+        raise ValueError("Codex thread already imported; resume totals must not be counted again")
+    item.update({"recorded_at": now(), "parent_request_id": None, "provider": "codex-cli",
+                 "model": args.model, "stage": args.stage, "cost_usd": None,
+                 "measurement_unit": "fresh CLI thread (may contain multiple model requests)", "source_path": str(Path(args.events).resolve())})
+    with (target / "usage.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(item, ensure_ascii=False, allow_nan=False) + "\n")
+    print(json.dumps(totals(existing + [item])))
 
 
 def prepare(args):
@@ -268,7 +316,7 @@ def parser():
     command.set_defaults(func=prepare)
     command = commands.add_parser("new-run")
     command.add_argument("--run", required=True)
-    command.add_argument("--strategy", choices=["single", "routing", "routing_context"], required=True)
+    command.add_argument("--strategy", required=True, help="Strategy key from --config")
     command.add_argument("--seed", type=int, required=True)
     command.add_argument("--setup", required=True)
     command.add_argument("--config", default=str(ROOT / "experiment.json"))
@@ -284,6 +332,12 @@ def parser():
     command.add_argument("--outcome", choices=["success", "failed", "cancelled"], required=True)
     command.add_argument("--cost-usd", type=float)
     command.set_defaults(func=record)
+    command = commands.add_parser("import-codex", help="Import one fresh codex exec --json log; do not use resume")
+    command.add_argument("--run", required=True)
+    command.add_argument("--events", required=True)
+    command.add_argument("--model", required=True)
+    command.add_argument("--stage", choices=["plan", "implement", "test", "review", "route", "summarize", "escalate", "publish"], required=True)
+    command.set_defaults(func=import_codex)
     command = commands.add_parser("evaluate")
     command.add_argument("--run", required=True)
     command.add_argument("--candidate", required=True)

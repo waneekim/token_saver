@@ -1,0 +1,26 @@
+{
+  "experiment_id": "ticket-analysis-vscode-cli-v2",
+  "quality_threshold": 90,
+  "max_tokens": 1000000,
+  "max_calls": 150,
+  "max_evaluations": 10,
+  "max_wall_minutes": 90,
+  "minimum_paired_repeats": 5,
+  "strategies": {
+    "single": "상위 모델 하나로 전체 미션 수행",
+    "single_mid": "구현용 모델 하나로 전체 미션 수행; 분업이 필요한지 확인하는 대조군",
+    "issue_handoff": "상위 모델 설계 → GitHub 이슈 전달 → 구현 모델 → 동일 검증 모델",
+    "local_handoff": "issue_handoff와 같은 모델·지침·세션 정책, 전달 매체만 로컬 파일",
+    "local_packet": "local_handoff + 짧은 작업 명세·관련 파일·변경·실패 내역만 전달"
+  },
+  "model_roles": {
+    "plan": "실험 전 실제 상위 모델 ID로 고정",
+    "implement": "실험 전 실제 구현 모델 ID로 고정",
+    "test": "실험 전 실제 검증 모델 ID로 고정"
+  },
+  "handoff_policy": "첫 실험은 순차 실행, 소스 변경자는 구현 모델 하나, 검증 실패 후 구현 재시도 최대 2회",
+  "session_policy": "파일 전달 세 조건은 같은 세션 유지/초기화 정책; 제공된 relay는 단계마다 새 CLI exec 사용",
+  "cache_policy": "동일 캐시 정책을 사용하고 실제 CLI의 캐시 격리 가능 여부 기록",
+  "time_policy": "동일 CLI·버전·도구·품질 기준. 모델 역할 설정과 인간 개입 시간을 기록",
+  "measurement_policy": "fresh codex exec --json thread 단위 합계 사용. call 수는 API 요청 수가 아닌 CLI 실행 수. resume 누적 합계 재합산 금지. 로그 크기나 글자 수는 토큰 지표로 대체하지 않음"
+}
