@@ -1,1 +1,90 @@
 # token_saver
+
+**동일한 개발 품질을 달성할 때까지의 누적 토큰을 줄이는 방법을 실험한다.**
+현재 연구 대상은 **VS Code에서 사용하는 Codex CLI와 Codex 모델들**이다. 회사 게이트웨이 연결은 뒤로 미뤘다.
+여러 터미널에서 같은 폴더를 사용하며 파일로 작업을 넘기는 실행 절차는 [VS Code 실험 안내](docs/VSCODE_EXPERIMENT.md)에 있다.
+대기 중 LLM을 호출하지 않는 `terminal_relay.py`, VS Code 터미널 tasks, Codex JSONL 사용량 importer를 제공한다.
+운영자 평가 패키지를 가진 경우 [로컬 자동 실행 안내](docs/LOCAL_RUN.md)에 따라 `run_actual_study.py`로
+모델 연결 확인, 세 조건 실행, 독립 평가, 재시도, 사용량 집계를 자동 수행할 수 있다.
+실험 미션은 [지원 티켓 분석 CLI 구현](mission/MISSION.md)이다. 자료 분석부터 구현·테스트·오류 수정까지 수행하여,
+고정된 품질 게이트를 통과하는 완성된 결과물을 제출한다. 이 저장소는 출발점이며 정답 구현은 포함하지 않는다.
+
+| 비교 조건 | 방식 |
+|---|---|
+| single | 상위 모델 하나로 설계·구현·검증 분석 수행 |
+| single_mid | 구현용 모델 하나로 전체 미션 수행 |
+| local_packet | 설계·구현·검증 모델이 짧은 작업 명세·변경·실패 내역을 파일로 전달 |
+
+GitHub 이슈 전달과 동일 지침 로컬 전달 조건도 추가 진단용으로 정의했다. 설정은 `experiments/vscode-cli.json`이다.
+
+주 지표는 **T_pass: 첫 품질 통과 시점까지 모든 모델 호출의 입력+출력 토큰 합계**다.
+기준선 대비 절감률은 `1 - T_pass(비교 방식) / T_pass(single)`로 계산한다.
+설계·분석·요약·분류·재시도·서브 에이전트·LLM 검증 토큰을 모두 포함한다.
+실패 실행도 집계하고 성공률·완료 시간·현금 비용을 함께 보고한다. 실제 절감률은 아직 측정하지 않았다.
+
+## 미션 시작
+
+`mission/MISSION.md`, `data/tickets.csv`, `data/policies.json`을 읽고 Python 3.12 표준 라이브러리만 사용하는 `solution.py`를 구현한다.
+
+```bash
+python solution.py --tickets data/tickets.csv --policies data/policies.json --out output
+```
+
+`output/report.json`에 팀별 SLA 통계와 원본 행 근거를 제공한다. README와 테스트도 제출한다.
+평가자는 별도 데이터로 100점 중 90점 이상 및 집계·중복·시간대·SLA 경계·근거·오류 처리·정책·재현성 필수 항목을 확인한다.
+평가 데이터와 정답 계산 모듈은 개발 모델이 접근하지 못하는 운영자 환경에 보관한다.
+
+## 사용량 기록
+
+이 저장소의 `lab.py`는 Codex CLI의 원본 JSONL usage를 수집하여 기록·비교한다.
+현재 제공하는 실행기는 planner → implementer → reviewer의 정해진 순서로 Codex CLI를 호출한다.
+난이도를 자동 판정해 모델을 선택하는 라우터는 아니다.
+
+`setup.example.json`을 복사하고 모델 ID·버전·base commit·캐시 정책·도구 정보를 실제 값으로 고정한다.
+API 키 등 비밀값을 기록하지 않는다. `experiments/vscode-cli.json`의 역할과 실행 한도도 실험 전에 확정한다.
+
+```bash
+cp setup.example.json setup.json
+python lab.py new-run --run runs/single-1 --strategy single --seed 1 --setup setup.json \
+  --config experiments/vscode-cli.json
+# Codex 실행에서 수집한 fresh exec 로그를 사용한다.
+python lab.py import-codex --run runs/single-1 --events baseline.jsonl \
+  --model actual-model-id --stage implement
+```
+
+fresh exec의 thread 합계를 한 번만 기록한다. 같은 thread ID를 다시 import하면 거절한다.
+완료 usage가 없는 실패·중단 로그는 미계측으로 남기고 T_pass를 확정하지 않는다. resume 누적량은 이 importer의 대상이 아니다.
+일반 usage 객체를 입력하는 record 명령도 유지한다. 형식 예시는 `schemas/usage.example.json`이다.
+
+운영자 전용 평가 모듈을 보유한 담당자가 다음을 실행한다. 이 공개 저장소에는 정답을 숨기기 위해 evaluator.py를 넣지 않았다.
+평가 모듈은 `evaluate(candidate, seed, timeout)` 함수로 score, checks, critical_passed, candidate_sha256을 반환하는 모듈이다.
+현재 운영자 패키지는 별도로 준비되어 있으며, 평가 데이터 생성과 전체 검증 테스트를 포함한다.
+
+```bash
+python lab.py evaluate --run runs/single-1 --candidate /submission/solution.py \
+  --evaluator /operator/evaluator.py --submission-accepted
+python lab.py compare --runs runs --out comparison.json
+python -m unittest discover -s tests -v
+```
+
+`--submission-accepted`는 담당자가 사용 설명·테스트·하드코딩 없는 제출을 검토했음을 뜻한다.
+평가는 Python subprocess로 실행하며, 신뢰할 수 없는 제출은 별도 격리 환경에서 실행한다.
+`prepare` 명령은 운영자 패키지가 있는 환경에서만 추가 반복용 자료를 생성할 수 있다.
+
+## 실험 규칙
+
+동일한 base commit·클라이언트·도구 권한·캐시 정책·시간 제한으로 시작한다.
+seed별로 세 조건을 모두 수행하고 실행 순서를 섞는다. 이전 실행의 코드·계획은 재사용하지 않는다.
+처음 5쌍은 탐색 실험이며, 선택한 방식을 새 seed 10쌍 이상으로 재확인한다.
+성공한 양쪽 실행의 paired 절감률과 전체 성공률을 함께 비교한다.
+
+`compare`는 중앙 T_pass, 성공률, paired 절감률 중앙값, **실패까지 포함한 소비 토큰 / 성공 실행 수**를 출력한다.
+서로 다른 base commit·도구 설정은 섞어 비교하지 않는다. 모든 호출 usage가 확보되어야 확정 지표가 된다.
+계측 값은 운영자가 수입한 기록이므로 실제 판단 전 Codex CLI 원본 로그와 대조한다.
+공급자별 tokenizer가 다르므로 토큰 수와 비용은 별도 지표다.
+
+한도: 90분, 100만 토큰, 150 CLI 실행, 평가 10회. 평가 시 한도를 확인한다.
+수동 relay는 구현 횟수를 제한한다. 자동 실행기는 호출당 15분 제한과 실행 사이의 전체 100만 토큰 한도를 추가 확인한다.
+자동 게이트 통과는 소스 검토 전 잠정 결과이며 호출 중 실시간 토큰 차단은 제공하지 않는다.
+사람이 코드를 수정한 실행은 순수 자동 개발 비교에서 제외한다. 미션 종료는 품질 통과이며 이후 업로드는 별도 운영 비용이다.
+목표는 이 조건에서 효율이 좋은 방식을 찾는 것이며 모든 프로젝트에서의 최소 토큰을 증명하는 것은 아니다.

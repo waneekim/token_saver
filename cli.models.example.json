@@ -1,0 +1,9 @@
+{
+  "max_implementation_attempts": 3,
+  "packet_byte_limit": 8192,
+  "roles": {
+    "planner": {"model_id": "REPLACE_PLANNER_MODEL_ID", "argv": ["codex", "exec", "--json", "--model", "{model}", "--cd", "{root}", "--sandbox", "workspace-write", "--output-last-message", "{response}", "-"]},
+    "implementer": {"model_id": "REPLACE_IMPLEMENTER_MODEL_ID", "argv": ["codex", "exec", "--json", "--model", "{model}", "--cd", "{root}", "--sandbox", "workspace-write", "--output-last-message", "{response}", "-"]},
+    "reviewer": {"model_id": "REPLACE_REVIEWER_MODEL_ID", "argv": ["codex", "exec", "--json", "--model", "{model}", "--cd", "{root}", "--sandbox", "workspace-write", "--output-schema", "{schema}", "--output-last-message", "{response}", "-"]}
+  }
+}
