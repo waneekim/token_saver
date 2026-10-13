@@ -10,8 +10,10 @@
 | 비교 조건 | 방식 |
 |---|---|
 | single | 상위 모델 하나로 설계·구현·검증 분석 수행 |
-| routing | 설계·구현·검증 분석에 서로 다른 모델 배정 |
-| routing_context | routing + 짧은 작업 명세·관련 코드·실패 차이만 전달 |
+| single_mid | 구현용 모델 하나로 전체 미션 수행 |
+| local_packet | 설계·구현·검증 모델이 짧은 작업 명세·변경·실패 내역을 파일로 전달 |
+
+GitHub 이슈 전달과 동일 지침 로컬 전달 조건도 추가 진단용으로 정의했다. 설정은 `experiments/vscode-cli.json`이다.
 
 주 지표는 **T_pass: 첫 품질 통과 시점까지 모든 모델 호출의 입력+출력 토큰 합계**다.
 기준선 대비 절감률은 `1 - T_pass(비교 방식) / T_pass(single)`로 계산한다.
@@ -32,25 +34,25 @@ python solution.py --tickets data/tickets.csv --policies data/policies.json --ou
 
 ## 사용량 기록
 
-이 저장소의 `lab.py`는 회사 게이트웨이 또는 코딩 도구가 제공하는 usage를 기록·비교한다.
-모델 호출과 자동 라우팅은 실행기나 게이트웨이에서 수행한다. 계측 CLI만으로 라우팅이 구현되지는 않는다.
+이 저장소의 `lab.py`는 Codex CLI의 원본 JSONL usage를 수집하여 기록·비교한다.
 현재 제공하는 실행기는 planner → implementer → reviewer의 정해진 순서로 Codex CLI를 호출한다.
 난이도를 자동 판정해 모델을 선택하는 라우터는 아니다.
 
 `setup.example.json`을 복사하고 모델 ID·버전·base commit·캐시 정책·도구 정보를 실제 값으로 고정한다.
-API 키 등 비밀값을 기록하지 않는다. `experiment.json`의 역할과 실행 한도도 실험 전에 확정한다.
+API 키 등 비밀값을 기록하지 않는다. `experiments/vscode-cli.json`의 역할과 실행 한도도 실험 전에 확정한다.
 
 ```bash
 cp setup.example.json setup.json
-python lab.py new-run --run runs/single-1 --strategy single --seed 1 --setup setup.json
-python lab.py record --run runs/single-1 --provider openai --usage usage.json \
-  --request-id gw-001 --model actual-model-id --stage plan --outcome success
+python lab.py new-run --run runs/single-1 --strategy single --seed 1 --setup setup.json \
+  --config experiments/vscode-cli.json
+# Codex 실행에서 수집한 fresh exec 로그를 사용한다.
+python lab.py import-codex --run runs/single-1 --events baseline.jsonl \
+  --model actual-model-id --stage implement
 ```
 
-`usage.json`은 호출의 최종 usage 객체다. 지원 형식은 OpenAI Responses·Chat Completions,
-Anthropic 및 회사 정규화 형식이다. 예시는 `schemas/usage.example.json`에 있다.
-실패 요청도 기록하며 usage를 모르면 `--provider missing`을 사용한다. 누락이 있으면 T_pass를 확정하지 않는다.
-스트리밍 중간 사용량을 반복 합산하지 않는다. 동일 request_id 중복 기록은 거절한다.
+fresh exec의 thread 합계를 한 번만 기록한다. 같은 thread ID를 다시 import하면 거절한다.
+완료 usage가 없는 실패·중단 로그는 미계측으로 남기고 T_pass를 확정하지 않는다. resume 누적량은 이 importer의 대상이 아니다.
+일반 usage 객체를 입력하는 record 명령도 유지한다. 형식 예시는 `schemas/usage.example.json`이다.
 
 운영자 전용 평가 모듈을 보유한 담당자가 다음을 실행한다. 이 공개 저장소에는 정답을 숨기기 위해 evaluator.py를 넣지 않았다.
 평가 모듈은 `evaluate(candidate, seed, timeout)` 함수로 score, checks, critical_passed, candidate_sha256을 반환하는 모듈이다.
@@ -76,9 +78,10 @@ seed별로 세 조건을 모두 수행하고 실행 순서를 섞는다. 이전 
 
 `compare`는 중앙 T_pass, 성공률, paired 절감률 중앙값, **실패까지 포함한 소비 토큰 / 성공 실행 수**를 출력한다.
 서로 다른 base commit·도구 설정은 섞어 비교하지 않는다. 모든 호출 usage가 확보되어야 확정 지표가 된다.
-계측 값은 운영자가 수입한 기록이므로 실제 판단 전 게이트웨이 원본 로그와 대조한다.
+계측 값은 운영자가 수입한 기록이므로 실제 판단 전 Codex CLI 원본 로그와 대조한다.
 공급자별 tokenizer가 다르므로 토큰 수와 비용은 별도 지표다.
 
-한도: 90분, 100만 토큰, 150호출, 평가 10회. 평가 시 한도를 확인하고 실시간 중단은 실행기에서 처리한다.
+한도: 90분, 100만 토큰, 150 CLI 실행, 평가 10회. 평가 시 한도를 확인한다.
+실행기는 구현 횟수를 제한하며 실시간 시간·토큰 한도 확인과 중단은 현재 운영자가 수행한다.
 사람이 코드를 수정한 실행은 순수 자동 개발 비교에서 제외한다. 미션 종료는 품질 통과이며 이후 업로드는 별도 운영 비용이다.
 목표는 이 조건에서 효율이 좋은 방식을 찾는 것이며 모든 프로젝트에서의 최소 토큰을 증명하는 것은 아니다.

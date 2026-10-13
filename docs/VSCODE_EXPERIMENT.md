@@ -141,6 +141,21 @@ codex exec --json --model 실제상위모델ID --cd . --sandbox workspace-write 
 ```
 
 최종 quality 평가와 compare 절차는 기존 lab.py와 동일하다. 평가 코드는 개발 모델이 접근하지 못하는 운영자 환경에 둔다.
+독립 평가가 실패하면 정답 데이터 대신 실패 check 이름과 재현 가능한 원인만 다음 형태로 feedback.json에 저장한다.
+
+```json
+{"status":"fail","failures":["sla_boundaries 필수 평가 실패: 경계 조건을 다시 확인할 것"]}
+```
+
+```bash
+python3 terminal_relay.py quality-feedback --file feedback.json
+# VS Code에서 세 worker task를 다시 시작한다. 기존 plan과 logs는 유지한다.
+```
+
+남은 구현 횟수가 있으면 implementer부터 이어서 실행하며 다음 로그 번호를 사용한다.
+추가 호출 사용량도 같은 lab run에 import한다. 한도를 이미 썼으면 needs_redesign으로 종료한다.
+실행기는 구현 재시도 횟수를 자동 제한한다. 시간·토큰 한도는 운영자가 실행 중 확인하고,
+lab의 독립 평가가 최종 한도 초과 여부를 판정한다. 실시간 토큰 중단 기능은 아직 없다.
 실제 모델 호출 이전에는 절감률을 만들지 않는다. 현재 도구의 모의 CLI 테스트는 실행 흐름 검증이며 모델 효율 실험이 아니다.
 
 ## 결과에 따라 바꿀 방향

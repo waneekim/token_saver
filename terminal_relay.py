@@ -138,6 +138,23 @@ def complete(directory, role, sequence, returncode):
         return state
 
 
+def quality_failure(root, feedback_path):
+    directory = Path(root).resolve(strict=True) / ".coord"
+    feedback = read(Path(feedback_path))
+    if not isinstance(feedback, dict) or set(feedback) != {"status", "failures"} or feedback["status"] != "fail" or not isinstance(feedback["failures"], list) or not feedback["failures"] or not all(isinstance(item, str) and item.strip() for item in feedback["failures"]):
+        raise ValueError("independent quality feedback requires status=fail and nonempty failure strings")
+    with locked(directory):
+        state = read(directory / "state.json")
+        if state["phase"] != "ready_for_quality_evaluation" or state["active"] is not None:
+            raise ValueError("only an idle submission awaiting independent evaluation can receive feedback")
+        config = read(directory / "config.json")
+        write(directory / "review.json", feedback)
+        state["phase"] = "implementer" if state["implementation_attempts"] < config["max_implementation_attempts"] else "needs_redesign"
+        state["history"].append({"kind": "independent_quality_failure", "failures": feedback["failures"], "next_phase": state["phase"]})
+        write(directory / "state.json", state)
+        return state
+
+
 def worker(root, role, once=False):
     root = Path(root).resolve(strict=True)
     directory = root / ".coord"
@@ -190,6 +207,8 @@ def main():
     command = commands.add_parser("worker")
     command.add_argument("--role", choices=ROLES, required=True)
     command.add_argument("--once", action="store_true")
+    command = commands.add_parser("quality-feedback", help="Return independent quality failures to the implementation worker")
+    command.add_argument("--file", required=True)
     commands.add_parser("status")
     args = parser.parse_args()
     try:
@@ -197,6 +216,8 @@ def main():
             print(initialize(args.root, args.config, args.mission))
         elif args.command == "status":
             print(json.dumps(read(Path(args.root) / ".coord" / "state.json"), ensure_ascii=False, indent=2))
+        elif args.command == "quality-feedback":
+            print(json.dumps(quality_failure(args.root, args.file), ensure_ascii=False, indent=2))
         else:
             worker(args.root, args.role, args.once)
     except (ValueError, KeyError, TypeError, OSError) as exc:

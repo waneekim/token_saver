@@ -113,6 +113,27 @@ class RelayTests(unittest.TestCase):
         self.assertEqual(state["phase"], "implementer")
         self.assertEqual(len(list((self.directory / "logs").glob("*.jsonl"))), 1)
 
+    def test_independent_quality_failure_continues_same_run(self):
+        for role in relay.ROLES:
+            self.quiet_worker(role)
+        feedback = self.root / "feedback.json"
+        relay.write(feedback, {"status": "fail", "failures": ["fixture boundary failure"]})
+        state = relay.quality_failure(self.root, feedback)
+        self.assertEqual(state["phase"], "implementer")
+        for role in ("implementer", "reviewer"):
+            self.quiet_worker(role)
+        state = relay.read(self.directory / "state.json")
+        self.assertEqual(state["phase"], "ready_for_quality_evaluation")
+        self.assertEqual(state["sequence"], 5)
+        self.assertEqual(len(list((self.directory / "logs").glob("*.jsonl"))), 5)
+
+    def test_quality_feedback_cannot_interrupt_active_work(self):
+        relay.claim(self.directory, "planner")
+        feedback = self.root / "feedback.json"
+        relay.write(feedback, {"status": "fail", "failures": ["fixture"]})
+        with self.assertRaises(ValueError):
+            relay.quality_failure(self.root, feedback)
+
 
 class NativeUsageTests(unittest.TestCase):
     def log(self, entries):
